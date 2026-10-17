@@ -1,0 +1,64 @@
+name: fluxo
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fluxo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fluxo}
+      POSTGRES_DB: ${POSTGRES_DB:-fluxo}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - '5432:5432' # expuesto para usar Prisma Studio / psql desde el host
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redisdata:/data
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: ./api
+    environment:
+      PORT: 3000
+      # Dentro de la red de Compose los servicios se resuelven por su nombre
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fluxo}:${POSTGRES_PASSWORD:-fluxo}@postgres:5432/${POSTGRES_DB:-fluxo}
+      REDIS_URL: redis://redis:6379
+      WEB_ORIGIN: http://localhost:${WEB_PORT:-8080}
+    ports:
+      - '3000:3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      args:
+        VITE_API_URL: /api
+    ports:
+      - '${WEB_PORT:-8080}:80'
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  redisdata:
