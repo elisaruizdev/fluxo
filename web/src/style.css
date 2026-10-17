@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+/* Modo oscuro por clase (.dark en <html>) en lugar de solo prefers-color-scheme */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Identidad de Fluxo: tinta neutra + acento verde azulado */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+}
+
+@layer base {
+  html {
+    @apply bg-stone-100 text-stone-900 antialiased dark:bg-stone-950 dark:text-stone-100;
+  }
+}
