@@ -10,7 +10,8 @@
     "type-check": "vue-tsc -b",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:fullstack": "playwright test -c playwright.fullstack.config.ts"
   },
   "dependencies": {
     "pinia": "^4.1.0",
