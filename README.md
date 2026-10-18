@@ -1,8 +1,10 @@
 # Fluxo
 
+[![CI](https://github.com/elisaruizdev/fluxo/actions/workflows/ci.yml/badge.svg)](https://github.com/elisaruizdev/fluxo/actions/workflows/ci.yml)
+
 Gestor de tareas estilo kanban, fullstack y dockerizado.
 
-> En construcción. Paso actual: **3 — boards y cards integrados con el frontend**.
+> En construcción. Paso actual: **4 — Docker Compose completo y CI**.
 
 ## Estructura
 
@@ -12,7 +14,7 @@ fluxo/
 ├── api/                 # NestJS + TypeScript + Prisma (Redis y BullMQ en el paso 5)
 ├── docs/adr/            # Decisiones de arquitectura
 ├── docker-compose.yml
-└── .github/workflows/   # CI (paso 4)
+└── .github/workflows/   # CI con GitHub Actions
 ```
 
 ## Desarrollo local
@@ -38,17 +40,27 @@ npm run db:migrate && npm run start:dev         # http://localhost:3000/api, doc
 ## Con Docker
 
 ```bash
-cp .env.example .env
-docker compose up --build
-# web → http://localhost:8080   api → http://localhost:3000/api/health
+cp .env.example .env          # y rellena JWT_ACCESS_SECRET (openssl rand -base64 48)
+docker compose up -d --build --wait
+# web → http://localhost:8080   api → http://localhost:3000/api/health/ready
 ```
+
+| Servicio | Qué hace | Healthcheck |
+| --- | --- | --- |
+| `postgres` | Base de datos (volumen `pgdata`) | `pg_isready` |
+| `redis` | Caché, pub/sub y colas (volumen `redisdata`) | `redis-cli ping` |
+| `migrate` | Aplica las migraciones de Prisma y termina | — (la API espera a que acabe con éxito) |
+| `api` | NestJS · imagen de ~384 MB | `/api/health/ready`: Postgres y Redis |
+| `web` | Nginx con el build de Vue · imagen de ~93 MB | `/healthz` |
+
+La API expone dos sondas: `/api/health` (*liveness*: el proceso responde) y `/api/health/ready` (*readiness*: puede atender peticiones porque llega a Postgres y Redis; 503 si no).
 
 ## Hoja de ruta
 
 1. [x] Frontend con datos falsos (tablero, listas, tarjetas, drag and drop)
 2. [x] API: auth y workspaces, migraciones y tests
 3. [x] Boards y cards (position + version) integrados con el frontend
-4. [ ] Docker Compose completo y CI
+4. [x] Docker Compose completo y CI
 5. [ ] Tiempo real (Redis pub/sub, BullMQ) y despliegue
 6. [ ] Pulido: diagrama de arquitectura, capturas, prueba de carga con k6
 
@@ -84,6 +96,20 @@ cd api && npm test                                 # unitarios
 cd api && npm run test:e2e                         # integración con Postgres real (Testcontainers → requiere Docker)
 TEST_DATABASE_URL=postgresql://... npm run test:e2e   # …o contra una BD que ya tengas
 ```
+
+## CI
+
+Cada push y cada pull request ejecutan [`.github/workflows/ci.yml`](.github/workflows/ci.yml):
+
+1. **API**: lint, formato, tests unitarios, build e integración con Testcontainers (Postgres y Redis reales).
+2. **Web**: type-check, tests unitarios, build y E2E con la API simulada.
+3. **Full stack** (si los dos anteriores pasan): `docker compose up --wait` y E2E de punta a punta a través de Nginx. El resumen del job muestra el tamaño de las imágenes.
+
+## Problemas conocidos (desarrollo local)
+
+- **Los tests de integración se quedan colgados al arrancar.** Testcontainers usa un *lock file* compartido (`%TEMP%/testcontainers-node-*.lock`). Si una ejecución anterior se cortó a medias, puede quedar un proceso `vitest` huérfano que lo retiene. Ciérralo (Administrador de tareas → `node.exe` con `vitest`) y vuelve a lanzar.
+- **Las primeras peticiones tras `docker compose up` tardan segundos.** Es el arranque en frío de Node y del compilador de consultas de Prisma (WebAssembly). Desaparece tras unas pocas peticiones.
+- **`getaddrinfo EAI_AGAIN postgres` esporádico en Docker Desktop.** El DNS interno de Docker a veces falla con muchas conexiones nuevas a la vez. Es del entorno local, no de la app; el frontend ofrece reintentar.
 
 ## Decisiones de arquitectura
 
