@@ -9,6 +9,14 @@ interface ErrorBody {
   message: string | string[];
   path: string;
   timestamp: string;
+  /** Datos adicionales, p. ej. `current` en un 409 de concurrencia */
+  [extra: string]: unknown;
+}
+
+interface Resolved {
+  status: number;
+  message: string | string[];
+  extra?: Record<string, unknown>;
 }
 
 /** Formato de error único para toda la API, y nunca un stack trace hacia fuera */
@@ -21,10 +29,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const req = ctx.getRequest<Request>();
     const res = ctx.getResponse<Response>();
 
-    const { status, message } = this.resolve(exception);
+    const { status, message, extra } = this.resolve(exception);
     if (status >= 500) this.logger.error(exception);
 
     const body: ErrorBody = {
+      ...extra,
       statusCode: status,
       error: STATUS_CODES[status] ?? 'Error',
       message,
@@ -34,14 +43,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
     res.status(status).json(body);
   }
 
-  private resolve(exception: unknown): { status: number; message: string | string[] } {
+  private resolve(exception: unknown): Resolved {
     if (exception instanceof HttpException) {
       const response = exception.getResponse();
-      const message =
-        typeof response === 'object' && response !== null && 'message' in response
-          ? (response as { message: string | string[] }).message
-          : exception.message;
-      return { status: exception.getStatus(), message };
+      if (typeof response === 'string') return { status: exception.getStatus(), message: response };
+
+      // new ConflictException({ message, current }) → `current` llega al cliente
+      const { message, statusCode: _s, error: _e, ...extra } = response as Record<string, unknown>;
+      return {
+        status: exception.getStatus(),
+        message: (message as string | string[] | undefined) ?? exception.message,
+        extra,
+      };
     }
 
     // Errores de Prisma que son culpa del cliente, no del servidor
