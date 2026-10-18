@@ -1,12 +1,13 @@
 import { NestFactory } from '@nestjs/core';
+import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module.js';
+import { setupApp } from './app.setup.js';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
-  app.enableCors({ origin: process.env.WEB_ORIGIN ?? 'http://localhost:5173', credentials: true });
-  // Cierra conexiones limpiamente con SIGTERM (docker stop)
-  app.enableShutdownHooks();
+  // bufferLogs: los logs del arranque esperan a que pino esté listo
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
+  setupApp(app);
   await app.listen(process.env.PORT ?? 3000);
 }
 await bootstrap();
