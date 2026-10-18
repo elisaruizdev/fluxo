@@ -27,6 +27,7 @@ export function useBoard(boardId: MaybeRefOrGetter<string>) {
     loading,
     error,
     connected,
+    reload: () => store.loadBoard(toValue(boardId)),
     moveCard: store.moveCard,
     addCard: store.addCard,
     addColumn: store.addColumn,

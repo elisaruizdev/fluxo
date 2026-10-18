@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { ApiError } from '@/api'
 import BoardColumn from '@/components/board/BoardColumn.vue'
 import InlineAddForm from '@/components/board/InlineAddForm.vue'
 import { useBoard } from '@/composables/useBoard'
@@ -7,9 +9,12 @@ import { useBoard } from '@/composables/useBoard'
 const props = defineProps<{ boardId: string }>()
 
 // Pasamos un getter para que useBoard reaccione si cambia el parámetro de la URL
-const { board, columns, cardsByColumn, loading, error, connected, moveCard, addCard, addColumn } = useBoard(
+const { board, columns, cardsByColumn, loading, error, connected, reload, moveCard, addCard, addColumn } = useBoard(
   () => props.boardId,
 )
+
+// Un 404 es "no existe" (o no tienes acceso); cualquier otro fallo es temporal y merece reintentar
+const notFound = computed(() => error.value instanceof ApiError && error.value.status === 404)
 </script>
 
 <template>
@@ -17,8 +22,14 @@ const { board, columns, cardsByColumn, loading, error, connected, moveCard, addC
     <div v-if="loading && !board" class="p-6 text-sm text-stone-500">Cargando tablero…</div>
 
     <div v-else-if="error || !board" class="p-6">
-      <p class="font-medium">No se ha encontrado este tablero.</p>
-      <RouterLink to="/" class="text-sm text-brand-600 hover:underline">Volver al inicio</RouterLink>
+      <template v-if="notFound">
+        <p class="font-medium">No se ha encontrado este tablero.</p>
+        <RouterLink to="/" class="text-sm text-brand-600 hover:underline">Volver al inicio</RouterLink>
+      </template>
+      <template v-else>
+        <p class="font-medium">No se pudo cargar el tablero.</p>
+        <button type="button" class="text-sm text-brand-600 hover:underline" @click="reload">Reintentar</button>
+      </template>
     </div>
 
     <template v-else>
