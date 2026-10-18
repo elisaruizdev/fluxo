@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Headers, HttpCode, NotFoundException, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  NotFoundException,
+  Post,
+  Req,
+  Res,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
@@ -41,7 +52,11 @@ export class AuthController {
   @Public()
   @Throttle(AUTH_THROTTLE)
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Headers('user-agent') ua: string, @Res({ passthrough: true }) res: Response) {
+  async register(
+    @Body() dto: RegisterDto,
+    @Headers('user-agent') ua: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     return this.respond(await this.auth.register(dto, ua), res);
   }
 

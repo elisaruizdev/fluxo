@@ -27,7 +27,13 @@ export class WorkspacesService {
         data: { name: dto.name, memberships: { create: { userId, role: 'ADMIN' } } },
       });
       await this.activity.log(
-        { workspaceId: workspace.id, actorId: userId, action: 'workspace.created', entityType: 'workspace', entityId: workspace.id },
+        {
+          workspaceId: workspace.id,
+          actorId: userId,
+          action: 'workspace.created',
+          entityType: 'workspace',
+          entityId: workspace.id,
+        },
         tx,
       );
       return { ...workspace, role: 'ADMIN' as Role };
@@ -43,7 +49,14 @@ export class WorkspacesService {
     return this.prisma.$transaction(async (tx) => {
       const workspace = await tx.workspace.update({ where: { id: workspaceId }, data: { name: dto.name } });
       await this.activity.log(
-        { workspaceId, actorId, action: 'workspace.renamed', entityType: 'workspace', entityId: workspaceId, payload: { name: dto.name } },
+        {
+          workspaceId,
+          actorId,
+          action: 'workspace.renamed',
+          entityType: 'workspace',
+          entityId: workspaceId,
+          payload: { name: dto.name },
+        },
         tx,
       );
       return workspace;
@@ -73,7 +86,14 @@ export class WorkspacesService {
         select: { role: true, createdAt: true, user: { select: publicUserSelect } },
       });
       await this.activity.log(
-        { workspaceId, actorId, action: 'member.added', entityType: 'membership', entityId: user.id, payload: { role: membership.role } },
+        {
+          workspaceId,
+          actorId,
+          action: 'member.added',
+          entityType: 'membership',
+          entityId: user.id,
+          payload: { role: membership.role },
+        },
         tx,
       );
       return membership;
@@ -91,7 +111,14 @@ export class WorkspacesService {
         select: { role: true, createdAt: true, user: { select: publicUserSelect } },
       });
       await this.activity.log(
-        { workspaceId, actorId, action: 'member.role_changed', entityType: 'membership', entityId: userId, payload: { from: current.role, to: role } },
+        {
+          workspaceId,
+          actorId,
+          action: 'member.role_changed',
+          entityType: 'membership',
+          entityId: userId,
+          payload: { from: current.role, to: role },
+        },
         tx,
       );
       return membership;

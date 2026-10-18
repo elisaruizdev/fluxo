@@ -49,7 +49,10 @@ describe('Auth (integración)', () => {
 
     it('rechaza emails duplicados con 409', async () => {
       await registerUser(app, 'dup');
-      await http().post('/api/auth/register').send({ email: 'dup@test.dev', name: 'x', password: 'password123' }).expect(409);
+      await http()
+        .post('/api/auth/register')
+        .send({ email: 'dup@test.dev', name: 'x', password: 'password123' })
+        .expect(409);
     });
 
     it('valida el body y rechaza campos desconocidos', async () => {
@@ -66,14 +69,23 @@ describe('Auth (integración)', () => {
   describe('POST /auth/login', () => {
     it('devuelve 401 con credenciales incorrectas sin decir cuál falla', async () => {
       await registerUser(app, 'login');
-      const wrongPass = await http().post('/api/auth/login').send({ email: 'login@test.dev', password: 'nope-nope' }).expect(401);
-      const wrongEmail = await http().post('/api/auth/login').send({ email: 'nadie@test.dev', password: 'nope-nope' }).expect(401);
+      const wrongPass = await http()
+        .post('/api/auth/login')
+        .send({ email: 'login@test.dev', password: 'nope-nope' })
+        .expect(401);
+      const wrongEmail = await http()
+        .post('/api/auth/login')
+        .send({ email: 'nadie@test.dev', password: 'nope-nope' })
+        .expect(401);
       expect(wrongPass.body.message).toBe(wrongEmail.body.message);
     });
 
     it('abre sesión con credenciales correctas', async () => {
       await registerUser(app, 'ok');
-      const res = await http().post('/api/auth/login').send({ email: 'ok@test.dev', password: 'password123' }).expect(200);
+      const res = await http()
+        .post('/api/auth/login')
+        .send({ email: 'ok@test.dev', password: 'password123' })
+        .expect(200);
       await http().get('/api/auth/me').set('Authorization', `Bearer ${res.body.accessToken}`).expect(200);
     });
   });
@@ -94,7 +106,9 @@ describe('Auth (integración)', () => {
       expect(next).not.toBe(user.cookie);
       await http().get('/api/auth/me').set('Authorization', `Bearer ${res.body.accessToken}`).expect(200);
 
-      const old = await prisma.refreshToken.findUniqueOrThrow({ where: { tokenHash: hashToken(user.cookie.split('=')[1]!) } });
+      const old = await prisma.refreshToken.findUniqueOrThrow({
+        where: { tokenHash: hashToken(user.cookie.split('=')[1]!) },
+      });
       expect(old.revokedAt).not.toBeNull();
       expect(old.replacedById).not.toBeNull();
     });
@@ -115,7 +129,10 @@ describe('Auth (integración)', () => {
 
     it('no afecta a otras sesiones del mismo usuario', async () => {
       const user = await registerUser(app, 'twodevices');
-      const other = await http().post('/api/auth/login').send({ email: 'twodevices@test.dev', password: 'password123' }).expect(200);
+      const other = await http()
+        .post('/api/auth/login')
+        .send({ email: 'twodevices@test.dev', password: 'password123' })
+        .expect(200);
 
       await http().post('/api/auth/refresh').set('Cookie', user.cookie).expect(200);
       await http().post('/api/auth/refresh').set('Cookie', user.cookie).expect(401); // reutilización en el dispositivo 1
@@ -125,7 +142,10 @@ describe('Auth (integración)', () => {
 
     it('rechaza tokens caducados', async () => {
       const user = await registerUser(app);
-      await prisma.refreshToken.updateMany({ where: { userId: user.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+      await prisma.refreshToken.updateMany({
+        where: { userId: user.id },
+        data: { expiresAt: new Date(Date.now() - 1000) },
+      });
       await http().post('/api/auth/refresh').set('Cookie', user.cookie).expect(401);
     });
 

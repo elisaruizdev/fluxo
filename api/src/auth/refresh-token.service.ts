@@ -53,7 +53,10 @@ export class RefreshTokenService {
     if (!current) throw new UnauthorizedException('Refresh token inválido');
 
     if (current.revokedAt) {
-      this.logger.warn({ familyId: current.familyId, userId: current.userId }, 'Reutilización de refresh token detectada');
+      this.logger.warn(
+        { familyId: current.familyId, userId: current.userId },
+        'Reutilización de refresh token detectada',
+      );
       await this.revokeFamily(current.familyId);
       throw new UnauthorizedException('Refresh token reutilizado: sesión revocada');
     }

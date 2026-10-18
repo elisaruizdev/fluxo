@@ -31,7 +31,11 @@ describe('Workspaces y RBAC (integración)', () => {
 
   beforeEach(async () => {
     await resetDb(prisma);
-    [admin, member, outsider] = await Promise.all([registerUser(app, 'admin'), registerUser(app, 'member'), registerUser(app, 'outsider')]);
+    [admin, member, outsider] = await Promise.all([
+      registerUser(app, 'admin'),
+      registerUser(app, 'member'),
+      registerUser(app, 'outsider'),
+    ]);
     const ws = await as(admin).post('/workspaces', { name: 'Equipo' }).expect(201);
     workspaceId = ws.body.id;
     await as(admin).post(`/workspaces/${workspaceId}/members`, { email: member.email }).expect(201);
@@ -64,7 +68,9 @@ describe('Workspaces y RBAC (integración)', () => {
 
   it('un ADMIN puede renombrar, gestionar roles y borrar', async () => {
     await as(admin).patch(`/workspaces/${workspaceId}`, { name: 'Renombrado' }).expect(200);
-    const promoted = await as(admin).patch(`/workspaces/${workspaceId}/members/${member.id}`, { role: 'ADMIN' }).expect(200);
+    const promoted = await as(admin)
+      .patch(`/workspaces/${workspaceId}/members/${member.id}`, { role: 'ADMIN' })
+      .expect(200);
     expect(promoted.body.role).toBe('ADMIN');
 
     // Ahora el antiguo MEMBER ya puede administrar
@@ -94,7 +100,11 @@ describe('Workspaces y RBAC (integración)', () => {
   it('registra el historial de actividad', async () => {
     await as(admin).patch(`/workspaces/${workspaceId}/members/${member.id}`, { role: 'ADMIN' }).expect(200);
     const res = await as(member).get(`/workspaces/${workspaceId}/activity`).expect(200);
-    expect(res.body.map((a: { action: string }) => a.action)).toEqual(['member.role_changed', 'member.added', 'workspace.created']);
+    expect(res.body.map((a: { action: string }) => a.action)).toEqual([
+      'member.role_changed',
+      'member.added',
+      'workspace.created',
+    ]);
     expect(res.body[0].payload).toEqual({ from: 'MEMBER', to: 'ADMIN' });
   });
 });

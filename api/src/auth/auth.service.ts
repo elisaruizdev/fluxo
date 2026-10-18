@@ -41,7 +41,13 @@ export class AuthService {
         data: { name: `Workspace de ${dto.name}`, memberships: { create: { userId: user.id, role: 'ADMIN' } } },
       });
       await this.activity.log(
-        { workspaceId: workspace.id, actorId: user.id, action: 'workspace.created', entityType: 'workspace', entityId: workspace.id },
+        {
+          workspaceId: workspace.id,
+          actorId: user.id,
+          action: 'workspace.created',
+          entityType: 'workspace',
+          entityId: workspace.id,
+        },
         tx,
       );
       return user;

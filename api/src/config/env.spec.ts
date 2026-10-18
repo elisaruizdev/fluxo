@@ -7,7 +7,11 @@ const valid = {
 
 describe('validateEnv', () => {
   it('aplica valores por defecto y convierte números', () => {
-    expect(validateEnv({ ...valid, PORT: '4000' })).toMatchObject({ PORT: 4000, JWT_ACCESS_TTL: 900, NODE_ENV: 'development' });
+    expect(validateEnv({ ...valid, PORT: '4000' })).toMatchObject({
+      PORT: 4000,
+      JWT_ACCESS_TTL: 900,
+      NODE_ENV: 'development',
+    });
   });
 
   it('falla al arrancar si falta algo o el secreto es corto', () => {
