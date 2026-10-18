@@ -30,10 +30,26 @@ services:
       timeout: 3s
       retries: 10
 
-  api:
-    build: ./api
+  # Aplica las migraciones y termina; la API espera a que acabe bien
+  migrate:
+    build:
+      context: ./api
+      target: migrate
     environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-fluxo}:${POSTGRES_PASSWORD:-fluxo}@postgres:5432/${POSTGRES_DB:-fluxo}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    build:
+      context: ./api
+      target: runtime
+    environment:
+      NODE_ENV: production
       PORT: 3000
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Define JWT_ACCESS_SECRET en .env}
       # Dentro de la red de Compose los servicios se resuelven por su nombre
       DATABASE_URL: postgresql://${POSTGRES_USER:-fluxo}:${POSTGRES_PASSWORD:-fluxo}@postgres:5432/${POSTGRES_DB:-fluxo}
       REDIS_URL: redis://redis:6379
@@ -41,8 +57,8 @@ services:
     ports:
       - '3000:3000'
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     restart: unless-stopped
