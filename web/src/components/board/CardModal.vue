@@ -71,24 +71,33 @@ async function remove() {
 const comments = ref<Comment[]>([])
 const newComment = ref('')
 
+/** Fusiona por id: llegan por tres vías (carga inicial, envío propio y tiempo real) y en cualquier orden */
+function mergeComments(incoming: Comment[]) {
+  const byId = new Map(comments.value.map((c) => [c.id, c]))
+  for (const c of incoming) byId.set(c.id, c)
+  comments.value = [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+}
+
 watch(
   () => props.cardId,
   async (id) => {
     comments.value = []
-    comments.value = await api.listComments(id)
+    const loaded = await api.listComments(id)
+    // Si mientras tanto se abrió otra tarjeta, esta respuesta ya no sirve
+    if (id === props.cardId) mergeComments(loaded)
   },
   { immediate: true },
 )
 
 useRealtime((e) => {
-  if (e.type === 'comment.created' && e.comment.cardId === props.cardId) comments.value.push(e.comment)
+  if (e.type === 'comment.created' && e.comment.cardId === props.cardId) mergeComments([e.comment])
 })
 
 async function sendComment() {
   const body = newComment.value.trim()
   if (!body) return
   newComment.value = ''
-  comments.value.push(await api.addComment(props.cardId, body))
+  mergeComments([await api.addComment(props.cardId, body)])
 }
 
 const inputClass =
