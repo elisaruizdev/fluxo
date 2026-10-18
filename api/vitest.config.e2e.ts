@@ -5,6 +5,10 @@ export default defineConfig({
   test: {
     globals: true,
     root: './',
-    include: ['**/*.e2e-spec.ts'],
+    include: ['test/**/*.e2e-spec.ts'],
+    globalSetup: ['test/global-setup.ts'],
+    // Todos los ficheros comparten la misma BD: se ejecutan de uno en uno
+    fileParallelism: false,
+    hookTimeout: 120_000,
   },
 });
