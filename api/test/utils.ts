@@ -9,11 +9,6 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 
 /** `override` permite sustituir providers (p. ej. un Redis caído) antes de compilar el módulo */
 export async function createTestApp(override: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b) {
-  process.env.NODE_ENV = 'test';
-  process.env.DATABASE_URL = inject('databaseUrl');
-  process.env.REDIS_URL = inject('redisUrl');
-  process.env.JWT_ACCESS_SECRET = 'test-secret-with-at-least-32-characters!!';
-
   const moduleRef = await override(Test.createTestingModule({ imports: [AppModule] })).compile();
   const app: INestApplication<App> = setupApp(moduleRef.createNestApplication());
   await app.init();
@@ -22,6 +17,14 @@ export async function createTestApp(override: (builder: TestingModuleBuilder) =>
 
 /** Deja la BD vacía entre tests sin tener que recrearla */
 export async function resetDb(prisma: PrismaService) {
+  // Red de seguridad: TRUNCATE solo sobre la BD que preparó global-setup, nunca sobre otra
+  const expected = new URL(inject('databaseUrl')).pathname.slice(1);
+  const [{ db }] = await prisma.$queryRaw<{ db: string }[]>`SELECT current_database() AS db`;
+  if (db !== expected) {
+    throw new Error(
+      `resetDb: conectada a "${db}" en vez de a la BD de tests "${expected}". Abortado para no borrar datos.`,
+    );
+  }
   const tables = await prisma.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> '_prisma_migrations'`;
   const list = tables.map((t) => `"${t.tablename}"`).join(', ');

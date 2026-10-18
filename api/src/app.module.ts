@@ -19,7 +19,8 @@ import { WorkspacesModule } from './workspaces/workspaces.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
+    // En tests la configuración llega solo por variables de entorno (test/setup-env.ts), nunca de .env
+    ConfigModule.forRoot({ isGlobal: true, validate: validateEnv, ignoreEnvFile: process.env.NODE_ENV === 'test' }),
     LoggerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService<Env, true>) => {

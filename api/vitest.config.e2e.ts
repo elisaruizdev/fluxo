@@ -7,6 +7,7 @@ export default defineConfig({
     root: './',
     include: ['test/**/*.e2e-spec.ts'],
     globalSetup: ['test/global-setup.ts'],
+    setupFiles: ['test/setup-env.ts'],
     // Todos los ficheros comparten la misma BD: se ejecutan de uno en uno
     fileParallelism: false,
     hookTimeout: 120_000,
