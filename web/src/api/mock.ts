@@ -1,4 +1,4 @@
-import type { Board, Card, Column, Comment, Label, User } from '@/types/domain'
+import type { Board, Card, Column, Comment, Label, Membership, Session, User } from '@/types/domain'
 import * as seed from './seed'
 import { ApiError, type FluxoApi, type RealtimeEvent } from './types'
 
@@ -7,12 +7,14 @@ import { ApiError, type FluxoApi, type RealtimeEvent } from './types'
  * y emite eventos por BroadcastChannel que, como un socket.broadcast, no llegan
  * a la pestaña que los envía. Abre dos pestañas para ver el "tiempo real".
  */
-const STORAGE_KEY = 'fluxo:mock-db:v1'
+const STORAGE_KEY = 'fluxo:mock-db:v2'
 const CURRENT_USER_ID = 'u1'
 const LATENCY_MS = Number(import.meta.env.VITE_MOCK_LATENCY_MS ?? 250)
 const FAIL_RATE = Number(import.meta.env.VITE_MOCK_FAIL_RATE ?? 0)
 
 interface Db {
+  workspaces: { id: string; name: string }[]
+  memberships: Membership[]
   boards: Board[]
   columns: Column[]
   cards: Card[]
@@ -26,6 +28,8 @@ export const realtimeChannel =
 
 function freshDb(): Db {
   return structuredClone({
+    workspaces: seed.workspaces,
+    memberships: seed.memberships,
     boards: seed.boards,
     columns: seed.columns,
     cards: seed.cards,
@@ -75,8 +79,39 @@ function findCard(db: Db, cardId: string) {
   return card
 }
 
+// Sin backend no hay contraseñas: cualquier login entra como el usuario u1
+const mockSession = (): Session => ({ accessToken: 'mock', user: read().users.find((u) => u.id === CURRENT_USER_ID)! })
+
 export const mockApi: FluxoApi = {
-  listBoards: () => respond(() => read().boards),
+  register: () => respond(mockSession),
+  login: () => respond(mockSession),
+  refresh: () => respond(mockSession),
+  logout: () => respond(() => undefined),
+
+  listWorkspaces: () =>
+    respond(() => {
+      const db = read()
+      return db.memberships
+        .filter((m) => m.userId === CURRENT_USER_ID)
+        .map((m) => ({ ...db.workspaces.find((w) => w.id === m.workspaceId)!, role: m.role }))
+    }),
+
+  listBoards: (workspaceId) => respond(() => read().boards.filter((b) => b.workspaceId === workspaceId)),
+
+  createBoard: (workspaceId, title) =>
+    respond(
+      () => {
+        const db = read()
+        const board: Board = { id: uid('board'), workspaceId, title, createdAt: new Date().toISOString() }
+        db.boards.push(board)
+        ;['Pendiente', 'En curso', 'Hecho'].forEach((t, i) =>
+          db.columns.push({ id: uid('col'), boardId: board.id, title: t, position: (i + 1) * 1024 }),
+        )
+        write(db)
+        return board
+      },
+      { mutation: true },
+    ),
 
   getBoard: (boardId) =>
     respond(() => {
@@ -90,7 +125,9 @@ export const mockApi: FluxoApi = {
         columns,
         cards: db.cards.filter((c) => columnIds.has(c.columnId) && !c.deletedAt),
         labels: db.labels.filter((l) => l.boardId === boardId),
-        members: db.users,
+        members: db.memberships
+          .filter((m) => m.workspaceId === board.workspaceId)
+          .map((m) => ({ ...db.users.find((u) => u.id === m.userId)!, role: m.role })),
       }
     }),
 

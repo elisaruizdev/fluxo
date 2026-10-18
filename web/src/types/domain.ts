@@ -12,6 +12,8 @@ export interface User {
 export interface Workspace {
   id: string
   name: string
+  /** Rol del usuario actual en este workspace */
+  role: Role
 }
 
 export interface Membership {
@@ -66,11 +68,21 @@ export interface Comment {
   createdAt: string
 }
 
+export interface Member extends User {
+  role: Role
+}
+
 /** Lo que devuelve GET /boards/:id: el tablero con todo lo necesario para pintarlo */
 export interface BoardSnapshot {
   board: Board
   columns: Column[]
   cards: Card[]
   labels: Label[]
-  members: User[]
+  members: Member[]
+}
+
+/** Respuesta de login/registro/refresh. El refresh token va en una cookie httpOnly, nunca aquí */
+export interface Session {
+  accessToken: string
+  user: User
 }

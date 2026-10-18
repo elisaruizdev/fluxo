@@ -9,7 +9,11 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    // Mismo origen que en producción (Nginx): /api va a la API y la cookie SameSite=Strict funciona
+    proxy: { '/api': 'http://localhost:3000' },
+  },
   test: {
     environment: 'jsdom',
     include: ['src/**/*.spec.ts'],

@@ -1,4 +1,4 @@
-import type { Board, Card, Column, Comment, Label, Membership, User, Workspace } from '@/types/domain'
+import type { Board, Card, Column, Comment, Label, Membership, User } from '@/types/domain'
 
 const now = new Date()
 const daysFromNow = (d: number) => new Date(now.getTime() + d * 86_400_000).toISOString()
@@ -10,7 +10,7 @@ export const users: User[] = [
   { id: 'u4', name: 'Iker Sanz', email: 'iker@fluxo.dev', avatarColor: '#e11d48' },
 ]
 
-export const workspaces: Workspace[] = [{ id: 'w1', name: 'Estudio Fluxo' }]
+export const workspaces = [{ id: 'w1', name: 'Estudio Fluxo' }]
 
 export const memberships: Membership[] = [
   { userId: 'u1', workspaceId: 'w1', role: 'ADMIN' },
