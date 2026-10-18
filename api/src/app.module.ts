@@ -6,6 +6,9 @@ import { randomUUID } from 'node:crypto';
 import { LoggerModule } from 'nestjs-pino';
 import { ActivityModule } from './activity/activity.module.js';
 import { AuthModule } from './auth/auth.module.js';
+import { BoardsModule } from './boards/boards.module.js';
+import { CardsModule } from './cards/cards.module.js';
+import { CommentsModule } from './comments/comments.module.js';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { type Env, validateEnv } from './config/env.js';
@@ -45,6 +48,9 @@ import { WorkspacesModule } from './workspaces/workspaces.module.js';
     HealthModule,
     AuthModule,
     WorkspacesModule,
+    BoardsModule,
+    CardsModule,
+    CommentsModule,
   ],
   providers: [
     // El orden importa: primero el rate limit, después la autenticación
