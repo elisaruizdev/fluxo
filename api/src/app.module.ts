@@ -14,6 +14,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { type Env, validateEnv } from './config/env.js';
 import { HealthModule } from './health/health.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
+import { RedisModule } from './redis/redis.module.js';
 import { WorkspacesModule } from './workspaces/workspaces.module.js';
 
 @Module({
@@ -44,6 +45,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module.js';
       skipIf: () => process.env.NODE_ENV === 'test',
     }),
     PrismaModule,
+    RedisModule,
     ActivityModule,
     HealthModule,
     AuthModule,

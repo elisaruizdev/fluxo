@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { inject } from 'vitest';
@@ -7,12 +7,14 @@ import { AppModule } from '../src/app.module.js';
 import { setupApp } from '../src/app.setup.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 
-export async function createTestApp() {
+/** `override` permite sustituir providers (p. ej. un Redis caído) antes de compilar el módulo */
+export async function createTestApp(override: (builder: TestingModuleBuilder) => TestingModuleBuilder = (b) => b) {
   process.env.NODE_ENV = 'test';
   process.env.DATABASE_URL = inject('databaseUrl');
+  process.env.REDIS_URL = inject('redisUrl');
   process.env.JWT_ACCESS_SECRET = 'test-secret-with-at-least-32-characters!!';
 
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const moduleRef = await override(Test.createTestingModule({ imports: [AppModule] })).compile();
   const app: INestApplication<App> = setupApp(moduleRef.createNestApplication());
   await app.init();
   return { app, prisma: app.get(PrismaService) };

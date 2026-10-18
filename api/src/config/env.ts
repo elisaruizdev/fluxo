@@ -3,6 +3,7 @@ export interface Env {
   PORT: number;
   WEB_ORIGIN: string;
   DATABASE_URL: string;
+  REDIS_URL: string;
   JWT_ACCESS_SECRET: string;
   /** Segundos de vida del access token */
   JWT_ACCESS_TTL: number;
@@ -32,6 +33,7 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     PORT: int('PORT', 3000),
     WEB_ORIGIN: str('WEB_ORIGIN', 'http://localhost:5173'),
     DATABASE_URL: str('DATABASE_URL'),
+    REDIS_URL: str('REDIS_URL', 'redis://localhost:6379'),
     JWT_ACCESS_SECRET: str('JWT_ACCESS_SECRET'),
     JWT_ACCESS_TTL: int('JWT_ACCESS_TTL', 900),
     REFRESH_TOKEN_TTL_DAYS: int('REFRESH_TOKEN_TTL_DAYS', 30),

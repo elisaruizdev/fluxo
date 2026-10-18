@@ -52,7 +52,8 @@ describe('Boards, columnas y tarjetas (integración)', () => {
     workspaceId = (await as(admin).post('/workspaces', { name: 'Equipo' }).expect(201)).body.id;
     await as(admin).post(`/workspaces/${workspaceId}/members`, { email: member.email }).expect(201);
 
-    boardId = (await as(member).post(`/workspaces/${workspaceId}/boards`, { title: 'Lanzamiento' }).expect(201)).body.id;
+    boardId = (await as(member).post(`/workspaces/${workspaceId}/boards`, { title: 'Lanzamiento' }).expect(201)).body
+      .id;
     columns = (await as(member).get(`/boards/${boardId}`).expect(200)).body.columns;
   });
 
@@ -163,7 +164,9 @@ describe('Boards, columnas y tarjetas (integración)', () => {
       const other = (await as(admin).get(`/boards/${otherBoard}`)).body;
 
       await as(member).patch(`/cards/${card.id}`, { version: 1, columnId: other.columns[0].id }).expect(400);
-      await as(member).patch(`/cards/${card.id}`, { version: 1, labelIds: [other.labels[0].id] }).expect(400);
+      await as(member)
+        .patch(`/cards/${card.id}`, { version: 1, labelIds: [other.labels[0].id] })
+        .expect(400);
       await as(member).patch(`/cards/${card.id}`, { version: 1, assigneeId: outsider.id }).expect(400);
       // Ningún intento fallido ha cambiado la versión
       expect((await prisma.card.findUniqueOrThrow({ where: { id: card.id } })).version).toBe(1);
