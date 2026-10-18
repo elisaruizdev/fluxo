@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, ref, shallowRef } from 'vue'
-import { api, ApiError, type CardPatch, type RealtimeEvent } from '@/api'
+import { api, ApiError, type CardPatch, type RealtimeEvent, type SavedCard } from '@/api'
 import { useOptimisticMutation } from '@/composables/useOptimisticMutation'
 import { useToasts } from '@/composables/useToasts'
-import type { Board, Card, Column, Label, User } from '@/types/domain'
+import type { Board, Card, Column, Label, Member } from '@/types/domain'
+import { createKeyedQueue } from '@/utils/keyedQueue'
 import { byPosition, positionAt } from '@/utils/position'
 
 /**
@@ -13,13 +14,12 @@ import { byPosition, positionAt } from '@/utils/position'
 export const useBoardStore = defineStore('board', () => {
   const { push: toast } = useToasts()
 
-  const boards = ref<Board[]>([])
   const board = shallowRef<Board | null>(null)
   const columns = ref<Column[]>([])
   // Normalizado por id: actualizar una tarjeta es O(1) y no duplica datos
   const cards = ref<Record<string, Card>>({})
   const labels = ref<Label[]>([])
-  const members = ref<User[]>([])
+  const members = ref<Member[]>([])
   const loading = ref(false)
   const error = shallowRef<unknown>(null)
 
@@ -36,12 +36,8 @@ export const useBoardStore = defineStore('board', () => {
   const labelById = computed(() => Object.fromEntries(labels.value.map((l) => [l.id, l])))
   const memberById = computed(() => Object.fromEntries(members.value.map((m) => [m.id, m])))
 
-  async function fetchBoards() {
-    boards.value = await api.listBoards()
-  }
-
-  async function loadBoard(boardId: string) {
-    loading.value = true
+  async function loadBoard(boardId: string, { silent = false } = {}) {
+    if (!silent) loading.value = true
     error.value = null
     try {
       const snap = await api.getBoard(boardId)
@@ -58,36 +54,66 @@ export const useBoardStore = defineStore('board', () => {
     }
   }
 
-  function handleError(e: unknown) {
-    if (e instanceof ApiError && e.status === 409) {
-      toast('Alguien cambió esta tarjeta antes que tú. Recargando el tablero…', 'error')
-      if (board.value) void loadBoard(board.value.id)
+  const refresh = () => (board.value ? loadBoard(board.value.id, { silent: true }) : Promise.resolve())
+
+  // --- Escrituras sobre tarjetas: en cola por tarjeta y con la versión del momento de enviar ---
+
+  const queue = createKeyedQueue()
+  /** Cambios de cada tarjeta que aún esperan respuesta */
+  const pending: Record<string, number> = {}
+
+  function sendUpdate(cardId: string, payload: CardPatch | { columnId: string; position: number }) {
+    pending[cardId] = (pending[cardId] ?? 0) + 1
+    return queue
+      .run(cardId, async () => {
+        const saved = await api.updateCard(cardId, cards.value[cardId]!.version, payload)
+        // La versión se actualiza DENTRO de la tarea: la siguiente de la cola ya sale con ella
+        const local = cards.value[cardId]
+        if (local) local.version = saved.version
+        return saved
+      })
+      .finally(() => pending[cardId]!--)
+  }
+
+  function reconcile({ columnReindexed, ...saved }: SavedCard) {
+    const local = cards.value[saved.id]
+    if (!local) return
+    // Si hay más cambios de esta tarjeta en camino, no pisamos su estado optimista: solo la versión
+    if (pending[saved.id]) local.version = saved.version
+    else cards.value[saved.id] = saved
+    if (columnReindexed) void refresh()
+  }
+
+  function handleError(e: unknown, cardId?: string) {
+    if (e instanceof ApiError && e.status === 409 && cardId) {
+      const current = e.data.current as Card | undefined
+      if (current) cards.value[cardId] = current
+      else void refresh()
+      toast('Otra persona cambió esta tarjeta antes que tú: ahora ves su versión.', 'error')
+    } else if (e instanceof ApiError && e.status === 404 && cardId) {
+      delete cards.value[cardId]
+      toast('Esa tarjeta ya no existe.', 'error')
     } else {
       toast('No se pudo guardar el cambio. Se ha revertido.', 'error')
     }
   }
 
-  // Sustituye la tarjeta por la versión del servidor (trae la nueva `version`)
-  const reconcile = (saved: Card) => {
-    cards.value[saved.id] = saved
-  }
-
   const move = useOptimisticMutation({
-    apply: (cardId: string, toColumnId: string, toIndex: number) => {
+    apply: (cardId: string, columnId: string, position: number) => {
       const card = cards.value[cardId]!
       const before = { columnId: card.columnId, position: card.position }
-      const siblings = (cardsByColumn.value[toColumnId] ?? []).filter((c) => c.id !== cardId)
-      card.columnId = toColumnId
-      card.position = positionAt(siblings, toIndex)
+      Object.assign(card, { columnId, position })
       return () => Object.assign(card, before)
     },
-    request: (cardId: string) => {
-      const { version, columnId, position } = cards.value[cardId]!
-      return api.updateCard(cardId, version, { columnId, position })
-    },
+    request: (cardId: string, columnId: string, position: number) => sendUpdate(cardId, { columnId, position }),
     onSuccess: reconcile,
-    onError: handleError,
+    onError: (e, cardId) => handleError(e, cardId),
   })
+
+  function moveCard(cardId: string, toColumnId: string, toIndex: number) {
+    const siblings = (cardsByColumn.value[toColumnId] ?? []).filter((c) => c.id !== cardId)
+    return move.mutate(cardId, toColumnId, positionAt(siblings, toIndex))
+  }
 
   const patch = useOptimisticMutation({
     apply: (cardId: string, changes: CardPatch) => {
@@ -96,9 +122,9 @@ export const useBoardStore = defineStore('board', () => {
       Object.assign(card, changes)
       return () => Object.assign(card, before)
     },
-    request: (cardId: string, changes: CardPatch) => api.updateCard(cardId, cards.value[cardId]!.version, changes),
+    request: sendUpdate,
     onSuccess: reconcile,
-    onError: handleError,
+    onError: (e, cardId) => handleError(e, cardId),
   })
 
   async function addCard(columnId: string, title: string) {
@@ -133,7 +159,7 @@ export const useBoardStore = defineStore('board', () => {
     const backup = cards.value[cardId]
     delete cards.value[cardId]
     try {
-      await api.deleteCard(cardId)
+      await queue.run(cardId, () => api.deleteCard(cardId))
     } catch (e) {
       if (backup) cards.value[cardId] = backup
       handleError(e)
@@ -150,7 +176,7 @@ export const useBoardStore = defineStore('board', () => {
     }
   }
 
-  /** Eventos de otras personas (otras pestañas, de momento) */
+  /** Eventos de otras personas (en modo mock, otras pestañas; WebSocket en el paso 5) */
   function applyRemote(event: RealtimeEvent) {
     switch (event.type) {
       case 'card.upserted': {
@@ -172,7 +198,6 @@ export const useBoardStore = defineStore('board', () => {
   }
 
   return {
-    boards,
     board,
     columns,
     cards,
@@ -184,9 +209,8 @@ export const useBoardStore = defineStore('board', () => {
     cardsByColumn,
     labelById,
     memberById,
-    fetchBoards,
     loadBoard,
-    moveCard: move.mutate,
+    moveCard,
     updateCard: patch.mutate,
     addCard,
     removeCard,
