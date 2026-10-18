@@ -10,6 +10,11 @@ export const ROLES_KEY = 'roles';
 /** Rol mínimo en el workspace de la ruta (ver WorkspaceRoleGuard) */
 export const Roles = (...roles: Role[]) => SetMetadata(ROLES_KEY, roles);
 
+export type WorkspaceSource = 'workspace' | 'board' | 'column' | 'card';
+export const WORKSPACE_SOURCE_KEY = 'workspaceSource';
+/** De qué recurso de la ruta se obtiene el workspace (por defecto, :workspaceId) */
+export const WorkspaceFrom = (source: WorkspaceSource) => SetMetadata(WORKSPACE_SOURCE_KEY, source);
+
 export const CurrentUser = createParamDecorator((_: unknown, ctx: ExecutionContext) => {
   return ctx.switchToHttp().getRequest<AppRequest>().user!;
 });
