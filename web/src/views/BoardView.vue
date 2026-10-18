@@ -24,12 +24,9 @@ const { board, columns, cardsByColumn, loading, error, connected, moveCard, addC
     <template v-else>
       <div class="flex items-center gap-3 px-4 py-3">
         <h1 class="text-lg font-semibold">{{ board.title }}</h1>
-        <span
-          class="flex items-center gap-1.5 text-xs text-stone-500"
-          :title="connected ? 'Sincronizado entre pestañas' : 'Sin tiempo real'"
-        >
-          <span class="size-2 rounded-full" :class="connected ? 'bg-emerald-500' : 'bg-stone-400'" />
-          {{ connected ? 'En vivo' : 'Sin conexión' }}
+        <span v-if="connected" class="flex items-center gap-1.5 text-xs text-stone-500" title="Sincronizado en tiempo real">
+          <span class="size-2 rounded-full bg-emerald-500" />
+          En vivo
         </span>
       </div>
 
